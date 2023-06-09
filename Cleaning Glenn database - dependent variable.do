@@ -1,9 +1,3 @@
-/* Glenn email:
-Il n’y pas encore de document technique de la base de données.  Au fait elle est encore en plein développement.  Les estimations des flux annuels qu’elle contient ne sont qu’une première ébauche, utilisant uniquement les données de stock des migrants. Les séries _fl sont bien un premier essai d’interpolation des données quinnenal ou décennal (provenant de l’ONU, OCDE ou Banque Mondiale) basé sur les stock ainsi que les flux, mais qui n’a pas encore vérifié et qui n’est donc pas assez fiable pour utiliser.  Tu peux ignorer ces séries.  Seules Stock et Flow, obtenus en interpolant les données de stock des sources mentionnées, sont pertinents.  
-
-La méthode d’interpolation est non-linéaire et tient compte (certes de façon élémentaire) de la dynamique démographique de la population (le taux de survie).  Cet article de Samuel donne plus de détails techniques: https://lib.ugent.be/en/catalog/pug01:8538414?ac=pug01%3A23A09002-F0EE-11E1-A9DE-61C894A0A6B4%3Aauthor&i=4&q=%22Samuel+Standaert%22&search_field=author
-*/
-
 cls 
 clear all 
 set more off 
@@ -11,18 +5,15 @@ set scrollbufsize 500000
 set maxvar 10000
 graph drop _all 
 capture log close 
-
 set matsize 11000
 
-cd "D:\Dropbox\PhD Killian\Paper I\" // Fix PC
-*cd "C:\Users\kifouber\Dropbox\PhD Killian\Paper I\" // Killian laptop
-
-use "Data\Migration and network\Network\Dta\migration_imputed_March2020.dta"
+cd "*********" 
+use "migration_imputed_March2020.dta"
 
 drop Stock_fl Flow_fl
-* This line could be dropped in case they finish the database
+* Stock_fl and Flow_fl were two variables the authors of the database were still working on at the time of my thesis
 
-* Changing the iso3 so we make sure to always use the same (iso3 from the GADM database) 
+* Change the iso3 codes for each country to use the official iso3 codes from the GADM database
 replace origin="Bahamas" if origin=="Bahamas; The"
 replace origin="Bonaire, Sint Eustatius and Saba" if origin=="Bonaire; Sint Eustatius and Saba"
 replace origin="Brunei" if origin=="Brunei Darussalam"
@@ -70,7 +61,7 @@ replace origin="Palestina" if origin=="West Bank and Gaza"
 *replace origin="" if origin=="Yugoslavia"
 
 drop iso_or
-merge m:1 origin using "Data\iso3\Clean\Dta\iso3clean origin.dta"
+merge m:1 origin using "iso3clean origin.dta"
 drop if _merge==2
 drop _merge
 
@@ -137,7 +128,7 @@ replace destination="Palestina" if destination=="West Bank and Gaza"
 *replace destination="" if destination=="Yugoslavia"
 
 drop iso_des
-merge m:1 destination using "Data\iso3\Clean\Dta\iso3clean dest.dta"
+merge m:1 destination using "iso3clean dest.dta"
 drop if _merge==2
 drop _merge
 
@@ -151,29 +142,31 @@ replace iso3d="SYE" if destination=="Yemen; People's Rep."
 replace destination="South Yemen" if destination=="Yemen; People's Rep."
 replace iso3d="NYE" if destination=="Yemen Arab Rep."
 replace destination="North Yemen" if destination=="Yemen Arab Rep."
-* I made the iso3 codes for Yemen so we can keep the observations
+* I created the iso3 codes for Yemen so we can keep the observations
 replace destination="Yemen" if destination=="Yemen; Rep."
 replace iso3d="YEM" if destination=="Yemen"
 
 drop if iso3d==""
 
-save "Data\Migration and network\Glenn Samuel\Glenn migration only.dta", replace
+save "Migration only.dta", replace
 
 replace year=y+1
-rename Stock Network
+* I am creating manually the lag that I will later use for my analysis
 
+rename Stock Network
 * Stock in year y will be network for potential migration in year y+1
-* See below for explanation on why 1975-2017
 drop if year<1975
 drop if year>2017
+* See below for explanation on why we keep the period 1975-2017
+
 
 collapse (sum) Network, by (iso3o iso3d year)
 * It corrects some duplicates due to the iso cleaning for Vietnam in the 70s. It concerns 23 observations.
 
-save "Data\Migration and network\Glenn Samuel\Glenn network only.dta", replace
+save "Network only.dta", replace
 
 clear all
-use "Data\Migration and network\Glenn Samuel\Glenn migration only.dta"
+use "Migration only.dta"
 
 * GTD starts in 1970, thus first complete index for 1970-1974 -> 1975
 * GTD ends in 2016 -> with year+1 it matches migration in 2017
@@ -184,9 +177,9 @@ drop if year>2017
 collapse (sum) Stock Flow, by (iso3o iso3d year)
 * It corrects some duplicates due to the iso cleaning for Vietnam in the 70s. It concerns 21 observations.
 
-merge 1:1 iso3o iso3d year using "Data\Migration and network\Glenn Samuel\Glenn network only.dta"
-* _merge==1 --> Info on migration but not on network because the observations for that particular corridor just started that year. --> Can drop
-* _merge==2 --> Opposite. Info on network but not on migration due to the year+1. Basically if the info on migration for a corridor ends on year y (with y<=2017), we will have network for y+1 not matching anything --> Can drop
+merge 1:1 iso3o iso3d year using "Network only.dta"
+* _merge==1 --> Left-join : Info on migration but not on network because the observations for that particular corridor just started that year. --> Can drop
+* _merge==2 --> Right-join : Info on network but not on migration due to the year+1. Basically if the info on migration for a corridor ends on year y (with y<=2017), we will have network for y+1 not matching anything --> Can drop
 
 drop if _merge!=3
 drop _merge
@@ -201,19 +194,19 @@ duplicates drop
 rename iso3d iso3o
 rename TotalStock TotalStock_or
 
-save "Data\Migration and network\Glenn Samuel\Glenn total stock origin.dta", replace
+save "Total stock origin.dta", replace
 
 rename iso3o iso3d
 rename TotalStock_or TotalStock_dest
 
-save "Data\Migration and network\Glenn Samuel\Glenn total stock dest.dta", replace
+save "Total stock dest.dta", replace
 restore
 
-merge m:1 year iso3o using "Data\Migration and network\Glenn Samuel\Glenn total stock origin.dta"
+merge m:1 year iso3o using "Total stock origin.dta"
 * There are 4,456 obs with merge==1 because the total stocks are based on the o-d corridor, with destination being the reference. So if there is more countries in origin/countries-years, then these observations will have missings.
 drop _merge
 
-merge m:1 year iso3d using "Data\Migration and network\Glenn Samuel\Glenn total stock dest.dta"
+merge m:1 year iso3d using "Total stock dest.dta"
 drop _merge
 
 * Flow<0 --> 149,855 obs --> around 0.09% of the observations
@@ -230,14 +223,14 @@ rename iso3d iso3o
 rename iso3d2 iso3d
 gen NegFlow=-Flow
 drop Flow
-save "Data\Migration and network\Glenn Samuel\Glenn negative flows", replace
+save "Negative flows", replace
 restore
 
-merge 1:1 year iso3o iso3d using "Data\Migration and network\Glenn Samuel\Glenn negative flows.dta"
+merge 1:1 year iso3o iso3d using "Negative flows.dta"
 drop if _merge==2 
 * No info on that corridor in that direction
 replace NegFlow=0 if _merge==1
 drop _merge
 gen FlowWithNeg=FlowWithoutNeg+NegFlow
 
-save "Data\Migration and network\Glenn Samuel\Glenn migration and network.dta", replace
+save "Migration and network.dta", replace
