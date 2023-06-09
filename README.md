@@ -1,4 +1,4 @@
-# PhD_Thesis
+# PhD Thesis
 This repository will list the STATA do-files used to conduct my Ph.D thesis, defended on January 2022.
 
 You can find the final Ph.D thesis summarized and the attached hyperlink to the full version on my google site: https://sites.google.com/view/killianfoubert/academic-research.
